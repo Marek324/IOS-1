@@ -7,7 +7,7 @@ export POSIXLY_CORRECT=yes
 export LC_ALL=C 
 
 usage(){
-    echo "Usage: $(basename $0) [-h|--help] [FILTER] [COMMAND] USER LOG [LOG2 [...]]
+    echo "Usage: $(basename "$0") [-h|--help] [FILTER] [COMMAND] USER LOG [LOG2 [...]]
         
     COMMAND may be one of:
         list - a listing of records for a given user.
@@ -22,3 +22,13 @@ usage(){
     exit 0
 }
 
+OPTSTRING = ""
+
+while getopts ${OPTSTRING} opt; do
+    case ${opt} in
+        #a)
+        #b)
+        #?) default
+        #;; break
+    esac
+done
