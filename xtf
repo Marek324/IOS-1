@@ -22,13 +22,41 @@ usage(){
     exit 0
 }
 
-OPTSTRING = ""
+command=""
 
-while getopts ${OPTSTRING} opt; do
-    case ${opt} in
-        #a)
-        #b)
-        #?) default
-        #;; break
+optstring=":ha:b:c:"
+
+while getopts $optstring opt; do
+    case $opt in
+        h)
+            usage
+            ;;
+        a) 
+            echo "Found a"
+            ;;
+        b) 
+            echo "Found b"
+            ;;
+        c)
+            echo "Found c"
+            ;;
+        ?)
+            if [[ $opt = "--help" ]]; then
+                usage
+            fi
+            
+            if [[ ${!opt} != -* ]]; then
+                case $opt in
+                    list)
+                        command="$opt"
+                        ;;
+                esac
+            else
+                echo "Invalid option: $OPTARG" >&2
+                usage
+            fi
+            ;; 
     esac
 done
+
+echo "$command"
