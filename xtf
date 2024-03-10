@@ -23,7 +23,8 @@ usage(){
 }
 
 ab_set_error(){
-    echo "Error: Option set multiple times" >&2
+    # $1 - a or b
+    echo "Error: Option $1 set multiple times" >&2
     usage 1
 }
 
@@ -32,59 +33,144 @@ two_names_set_error(){
     usage 1
 }
 
+two_commands_error(){
+    echo "Error: Two commands set" >&2
+    usage 1
+}
+
+date_format_error(){
+    # $1 - invalid date
+    echo "Error: Invalid date format: $1" >&2
+    usage 1
+}
+
+currency_format_error(){
+    # $1 - invalid currency code
+    echo "Error: Invalid currency format: $1" >&2
+    usage 1
+}
+
+regex_check(){
+    # $1 - string to be checked
+    # $2 - regex
+    local checked="$1"
+    local regex="$2"
+
+    if [[ $checked =~ $regex ]]; then
+        echo true
+    else
+        echo false
+    fi
+}
+
+date_validation(){
+    # $1 - date to be checked
+    local date_regex="^(\d{4})-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1]) (?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+
+    valid=regex_check "$1" "$date_regex"
+    if [ ! "$valid" ]; then
+        date_format_error "$1"
+    fi
+
+}
+
+currency_validation(){
+    # $1 - currency code to be checked
+    local currency_regex="^[A-Z]{3}$"
+
+    valid="regex_check $1 $currency_regex"
+    if [ ! "$valid" ]; then
+        currency_format_error "$1"
+    fi
+
+}
+
+process_file(){
+    # $1 - file
+    local line_regex="^.*;(\d{4})-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1]) (?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9];[A-Z]{3};[-+]?[0-9]*\.?[0-9]+$"
+    local filename=$1
+
+    # HERE
+    
+}
+
+declare -A currency_table #associative array
+files=() #array of files
+
 user=''
 command=""
 a_flag=false
+date_filter_after=""
 b_flag=false
+date_fitler_before=""
 c_flag=false
+c_flag_regex=""
 
+# parse arguments
 
-#args=( "$@" ) #save all arguments in array
-# da sa vynechat, pouzivat vzdy len $1 a shiftovat
-
-while [[ -n $1 ]]; do #iterate through the whole array
-    echo "$1"
-
+while [ -n "$1" ]; do
     case "$1" in #switch
         -h|--help)
             usage 0
             ;;
         -a)
-            if [[ $a_flag = true ]]; then
-                ab_set_error
+            if [ $a_flag = true ]; then
+                ab_set_error "$1"
             fi
             a_flag=true
-            ;; #expect value
+            shift
+            date_validation "$1"
+            date_filter_after="$1"
+            ;; 
         -b)
-            if [[ $b_flag = true ]]; then
-                ab_set_error
+            if [ $b_flag = true ]; then
+                ab_set_error "$1"
             fi
             b_flag=true
-            ;; #expect value
+            shift
+            date_validation "$1"
+            date_filter_before="$1"
+            ;;
         -c)
             c_flag=true
-            ;; #expect value
+            shift
+            currency_validation "$1"
+            if [ "$c_flag_regex" == "" ]; then
+                c_flag_regex="$1"
+            else
+                c_flag_regex="$c_flag_regex|$1"
+            fi
+            ;; 
         list|list-currency|status|profit)
-           command="$1"
+            if [ -z "$command" ]; then
+                command="$1"
+            else
+                two_commands_error 
+            fi
            ;;
         *)
-            if [ ! -f "$1" ]; then
-                if [ -z "$user" ]; then
-                    user="$1"
-                else 
-                    two_names_set_error
-                fi
-
+            if [ -f "$1" ]; then
+                files+=("$1")
+            elif [-z "$user" ]; then
+                user="$1"
+            else 
+                two_names_set_error
             fi
-            # -f filename - validacia ci subor je subor
+            ;;
     esac
     shift
 done
 
+c_flag_regex="^$c_flag_regex$"
 
-echo ""
-echo "command: $command"
-echo "a: $a_flag"
-echo "b: $b_flag"
-echo "c: $c_flag"
-echo "user: $user"
+case "$command" in
+    list)
+
+        ;;
+    list-currency)
+        ;;
+    status)
+        ;;
+    profit)
+        ;;
+esac
