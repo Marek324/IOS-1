@@ -94,7 +94,11 @@ process_file(){
     
 }
 
-declare -A currency_table #associative array
+if [ -z "$XTF_PROFIT" ]; then
+    XTF_PROFIT=20
+fi
+
+declare -A currency_table
 files=() #array of files
 
 user=''
@@ -106,10 +110,8 @@ date_fitler_before=""
 c_flag=false
 c_flag_regex=""
 
-# parse arguments
-
 while [ -n "$1" ]; do
-    case "$1" in #switch
+    case "$1" in 
         -h|--help)
             usage 0
             ;;
@@ -161,11 +163,24 @@ while [ -n "$1" ]; do
     shift
 done
 
+if [ -z "$command" ]; then
+    command="list"
+fi
+
+if [ -z "$user" ]; then
+    echo "Error: No user specified."
+    usage 1
+fi
+
+if [ -z "$files" ]; then
+    echo "Error: No log files"
+    usage 1
+
 c_flag_regex="^$c_flag_regex$"
 
 case "$command" in
     list)
-
+        
         ;;
     list-currency)
         ;;
