@@ -19,44 +19,99 @@ usage(){
         -b DATETIME - before: only records BEFORE this date and time (without it) are considered.
         -c CURRENCY - only records corresponding to the given currency are considered.
     -h and --help print a help message with a short description of each command and switch."
-    exit 0
+    exit "$1"
 }
 
+ab_set_error(){
+    echo "Error: Option set multiple times" >&2
+    usage 1
+}
+
+user=''
 command=""
+a_flag=false
+b_flag=false
+c_flag=false
 
-optstring=":ha:b:c:"
 
-while getopts $optstring opt; do
-    case $opt in
-        h)
-            usage
+args=( "$@" ) #save all arguments in array
+# da sa vynechat, pouzivat vzdy len $1 a shiftovat
+
+for i in "${!args[@]}"; do #iterate through the whole array
+    echo "${args[i]}"
+
+    case "${args[i]}" in #switch
+        '')
+            continue
             ;;
-        a) 
-            echo "Found a"
+        -h|--help)
+            usage 0
             ;;
-        b) 
-            echo "Found b"
-            ;;
-        c)
-            echo "Found c"
-            ;;
-        ?)
-            if [[ $opt = "--help" ]]; then
-                usage
+        -a)
+            if [[ $a_flag = true ]]; then
+                ab_set_error
             fi
+            a_flag=true
+            ;; #expect value
+        -b)
+            if [[ $b_flag = true ]]; then
+                ab_set_error
+            fi
+            b_flag=true
+            ;; #expect value
+        -c)
+            c_flag=true
+            ;; #expect value
+        list|list-currency|status|profit)
+           command="${args[i]}"
+           ;;
+        *)
+            if [[ -z $user ]]; then
             
-            if [[ ${!opt} != -* ]]; then
-                case $opt in
-                    list)
-                        command="$opt"
-                        ;;
-                esac
-            else
-                echo "Invalid option: $OPTARG" >&2
-                usage
+                user="${args[i]}"
             fi
-            ;; 
+            # -f filename - validacia ci subor je subor
     esac
+    unset "args[i]"
 done
 
+#optstring=":ha:b:c:"
+
+#while getopts "$optstring" opt; do
+ #   case $opt in
+ #       h) usage ;;
+ #       a) a_flag=true ;;
+ #       b) b_flag=true ;;
+ #       c) c_flag=true ;;
+ #       ?)
+ #           echo "Invalid option: -$opt" >&2
+ #           usage ;;
+ #   esac
+#done
+#shift $((OPTIND - 1))  # Shift the processed options
+
+# Check for command
+#if [ -n "$1" ]; then
+#    command="$1"
+#    shift  # Move to next argument
+#else
+#    echo "Error: Command not specified." >&2
+#    usage
+#fi
+
+# Process the command
+#case $command in
+#    list) echo "Executing list command" ;;
+#    list-currency) echo "Executing list-currency command" ;;
+#    status) echo "Executing status command" ;;
+#    profit) echo "Executing profit command" ;;
+#    *) echo "Invalid command: $command" >&2
+#       usage ;;
+#esac
+
+echo ""
 echo "$command"
+echo "$a_flag"
+echo "$b_flag"
+echo "$c_flag"
+echo "$user"
