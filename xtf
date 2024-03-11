@@ -19,35 +19,35 @@ usage(){
         -b DATETIME - before: only records BEFORE this date and time (without it) are considered.
         -c CURRENCY - only records corresponding to the given currency are considered.
     -h and --help print a help message with a short description of each command and switch."
-    exit "$1"
+    exit 0
 }
 
 ab_set_error(){
     # $1 - a or b
     echo "Error: Option $1 set multiple times" >&2
-    usage 1
+    exit 1
 }
 
 two_names_set_error(){
     echo "Error: Two names set" >&2
-    usage 1
+    exit 1
 }
 
 two_commands_error(){
     echo "Error: Two commands set" >&2
-    usage 1
+    exit 1
 }
 
 date_format_error(){
     # $1 - invalid date
     echo "Error: Invalid date format: $1" >&2
-    usage 1
+    exit 1
 }
 
 currency_format_error(){
     # $1 - invalid currency code
     echo "Error: Invalid currency format: $1" >&2
-    usage 1
+    exit 1
 }
 
 regex_check(){
@@ -67,7 +67,7 @@ date_validation(){
     # $1 - date to be checked
     local date_regex="^(\d{4})-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1]) (?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
 
-    valid=regex_check "$1" "$date_regex"
+    valid=$(regex_check "$1" "$date_regex")
     if [ ! "$valid" ]; then
         date_format_error "$1"
     fi
@@ -85,14 +85,6 @@ currency_validation(){
 
 }
 
-process_file(){
-    # $1 - file
-    local line_regex="^.*;(\d{4})-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1]) (?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9];[A-Z]{3};[-+]?[0-9]*\.?[0-9]+$"
-    local filename=$1
-
-    # HERE
-    
-}
 
 if [ -z "$XTF_PROFIT" ]; then
     XTF_PROFIT=20
@@ -113,7 +105,7 @@ c_flag_regex=""
 while [ -n "$1" ]; do
     case "$1" in 
         -h|--help)
-            usage 0
+            usage 
             ;;
         -a)
             if [ $a_flag = true ]; then
@@ -122,7 +114,6 @@ while [ -n "$1" ]; do
             a_flag=true
             shift
             date_validation "$1"
-            date_filter_after="$1"
             ;; 
         -b)
             if [ $b_flag = true ]; then
@@ -131,7 +122,6 @@ while [ -n "$1" ]; do
             b_flag=true
             shift
             date_validation "$1"
-            date_filter_before="$1"
             ;;
         -c)
             c_flag=true
@@ -153,7 +143,7 @@ while [ -n "$1" ]; do
         *)
             if [ -f "$1" ]; then
                 files+=("$1")
-            elif [-z "$user" ]; then
+            elif [ -z "$user" ]; then
                 user="$1"
             else 
                 two_names_set_error
@@ -169,18 +159,63 @@ fi
 
 if [ -z "$user" ]; then
     echo "Error: No user specified."
-    usage 1
+    exit 1
 fi
 
-if [ -z "$files" ]; then
+if [ ${#files[@]} -eq 0 ]; then
     echo "Error: No log files"
-    usage 1
+    exit 1
+fi
+    
 
 c_flag_regex="^$c_flag_regex$"
+line_regex="^.*;(\d{4})-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1]) (?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9];[A-Z]{3};[-+]?[0-9]*\.?[0-9]+$"
+
+for file in "${files[@]}"; do
+    if [[ "$file" == *.gz ]]; then
+        gzip -d -c | awk -F";" -v line="$line_regex" '{
+            if ($0 !~ line) {
+                print "Line", NR, "is not in valid format."
+                exit 1
+            }
+        }'
+    fi
+done 
 
 case "$command" in
     list)
+        for file in "${files[@]}"; do
+            grep="" 
+            if [[ "$file" == *.gz ]]; then
+                grep="zgrep"
+            else
+                grep="grep"
+            fi
+            $grep '.*' "$file" | awk -F";" -v user="$user" -v a_flag="$a_flag" -v date_after="$date_filter_after" -v b_flag="$b_flag" -v date_before="$date_filter_before"'
+                function convert_date_seconds(date_string) {
+                    split(date_string, date_parts, /[- :]/);
+                    return mktime(date_parts[1] " " date_parts[2] " " date_parts[3] " " date_parts[4] " " date_parts[5] " " date_parts[6]);
+                }
+
+                BEGIN{
+                    if (a_flag){date_after = convert_date_seconds(date_after);}
+                    if (b_flag){date_before = convert_date_seconds(date_before);}
+                }
         
+                $0 ~ user {
+                    date = convert_date_seconds($2);
+                    if (a_flag && (date < date_before) && b_flag && (date > date_after)){
+                        print $0
+                    } else if (a_flag && (date < date_before)){
+                        print $0
+                    } else if (b_flag && (date > date_after)){
+                        print $0
+                    } else{
+                        print $0
+                    }
+                    
+                }'
+        done
         ;;
     list-currency)
         ;;
