@@ -1,2 +1,4 @@
 *.gz
 *.log
+/diff/*
+test_xtf.sh
