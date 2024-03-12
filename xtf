@@ -98,8 +98,7 @@ command=""
 a_flag=false
 date_filter_after=""
 b_flag=false
-date_fitler_before=""
-c_flag=false
+date_filter_before=""
 c_flag_regex=""
 
 while [ -n "$1" ]; do
@@ -114,6 +113,7 @@ while [ -n "$1" ]; do
             a_flag=true
             shift
             date_validation "$1"
+            date_filter_after="$1"
             ;; 
         -b)
             if [ $b_flag = true ]; then
@@ -122,9 +122,9 @@ while [ -n "$1" ]; do
             b_flag=true
             shift
             date_validation "$1"
+            date_filter_before="$1"
             ;;
         -c)
-            c_flag=true
             shift
             currency_validation "$1"
             if [ "$c_flag_regex" == "" ]; then
@@ -166,56 +166,118 @@ if [ ${#files[@]} -eq 0 ]; then
     echo "Error: No log files"
     exit 1
 fi
-    
 
-c_flag_regex="^$c_flag_regex$"
-line_regex="^.*;(\d{4})-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1]) (?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9];[A-Z]{3};[-+]?[0-9]*\.?[0-9]+$"
 
-for file in "${files[@]}"; do
-    if [[ "$file" == *.gz ]]; then
-        gzip -d -c | awk -F";" -v line="$line_regex" '{
-            if ($0 !~ line) {
-                print "Line", NR, "is not in valid format."
-                exit 1
-            }
-        }'
-    fi
-done 
+line_regex="^[^;]+;[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]);[A-Z]{3};-?[0-9]+(\.[0-9]+)?$"
+#line_regex="^.*;(\d{4})-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1]) (?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9];[-+]?[0-9]*\.?[0-9]*$"
+
+#for file in "${files[@]}"; do
+#    if [[ "$file" == *.gz ]]; then
+#        read="zgrep"
+#    else
+#        read="grep"
+#    fi  
+#
+#    error=$($read -cvE "$line_regex" "$file")
+#    if [ "$error" -gt 0 ]; then
+#        echo "Invalid line in log" >&2
+#        exit 1
+#    fi
+#done 
+
+if [ $a_flag = true ]; then
+    date_filter_after=$(date -d "$date_filter_after" +"%s")
+else 
+    date_filter_after=0
+fi
+
+if [ $b_flag = true ]; then
+    date_filter_before=$(date -d "$date_filter_before" +"%s")
+else 
+    date_filter_before=$(date -d "9999-12-31 23:59:59" +"%s")
+fi
+
+if [ -z "$c_flag_regex" ];then
+    c_flag_regex='*'
+else 
+    c_flag_regex="^$c_flag_regex$"
+fi
+
+error_code=0
+
+if ! awk -v line_regex="$line_regex" '
+    ($0 !~ line_regex) {
+        print "Line "NR" in file "FILENAME" is not in valid format" > "/dev/stderr"
+        error_code=1
+    }
+    END{
+        exit error_code
+    }
+' "${files[@]}"; then
+    exit 1
+fi
+
+
+
 
 case "$command" in
-    list)
+    old-list)
         for file in "${files[@]}"; do
-            grep="" 
             if [[ "$file" == *.gz ]]; then
                 grep="zgrep"
             else
                 grep="grep"
             fi
-            $grep '.*' "$file" | awk -F";" -v user="$user" -v a_flag="$a_flag" -v date_after="$date_filter_after" -v b_flag="$b_flag" -v date_before="$date_filter_before"'
-                function convert_date_seconds(date_string) {
-                    split(date_string, date_parts, /[- :]/);
-                    return mktime(date_parts[1] " " date_parts[2] " " date_parts[3] " " date_parts[4] " " date_parts[5] " " date_parts[6]);
+            $grep "$user" "$file" | awk -F";" -v a_flag="$a_flag" -v date_after="$date_filter_after" -v b_flag="$b_flag" -v date_before="$date_filter_before"' 
+                BEGIN{
+                    print "abc"
                 }
 
-                BEGIN{
-                    if (a_flag){date_after = convert_date_seconds(date_after);}
-                    if (b_flag){date_before = convert_date_seconds(date_before);}
-                }
-        
-                $0 ~ user {
+                {
+                    print $2" "date_after
+
                     date = convert_date_seconds($2);
-                    if (a_flag && (date < date_before) && b_flag && (date > date_after)){
+                    if (a_flag && (date > date_after) && b_flag && (date < date_before)){
                         print $0
-                    } else if (a_flag && (date < date_before)){
+                    } else if (a_flag && (date > date_after)){
                         print $0
-                    } else if (b_flag && (date > date_after)){
+                    } else if (b_flag && (date < date_before)){
                         print $0
                     } else{
                         print $0
                     }
+
+                    function convert_date_seconds(date_string) {
+                        split(date_string, date_parts, /[- :]/)
+                        return mktime(date_parts[1] " " date_parts[2] " " date_parts[3] " " date_parts[4] " " date_parts[5] " " date_parts[6])
+                    }
                     
                 }'
         done
+        ;;
+    list)
+        awk -F";" -v user="$user" -v date_after="$date_filter_after" -v date_before="$date_filter_before" -v currencies="$c_flag_regex" '
+            BEGIN{
+                # debug
+                #print date_before
+                #print date_after
+            }
+            
+            {
+                if (user != $1) next
+
+                date = convert_date_seconds($2);
+                if (date <= date_after) next
+                if (date >= date_before) next
+
+                print $0
+            }
+
+            function convert_date_seconds(date_string) {
+                split(date_string, date_parts, /[- :]/)
+                return mktime(date_parts[1] " " date_parts[2] " " date_parts[3] " " date_parts[4] " " date_parts[5] " " date_parts[6])
+            }
+        ' "${files[@]}" 
         ;;
     list-currency)
         ;;
