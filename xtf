@@ -221,40 +221,6 @@ fi
 
 
 case "$command" in
-    old-list)
-        for file in "${files[@]}"; do
-            if [[ "$file" == *.gz ]]; then
-                grep="zgrep"
-            else
-                grep="grep"
-            fi
-            $grep "$user" "$file" | awk -F";" -v a_flag="$a_flag" -v date_after="$date_filter_after" -v b_flag="$b_flag" -v date_before="$date_filter_before"' 
-                BEGIN{
-                    print "abc"
-                }
-
-                {
-                    print $2" "date_after
-
-                    date = convert_date_seconds($2);
-                    if (a_flag && (date > date_after) && b_flag && (date < date_before)){
-                        print $0
-                    } else if (a_flag && (date > date_after)){
-                        print $0
-                    } else if (b_flag && (date < date_before)){
-                        print $0
-                    } else{
-                        print $0
-                    }
-
-                    function convert_date_seconds(date_string) {
-                        split(date_string, date_parts, /[- :]/)
-                        return mktime(date_parts[1] " " date_parts[2] " " date_parts[3] " " date_parts[4] " " date_parts[5] " " date_parts[6])
-                    }
-                    
-                }'
-        done
-        ;;
     list)
         awk -F";" -v user="$user" -v date_after="$date_filter_after" -v date_before="$date_filter_before" -v currencies="$c_flag_regex" '
             BEGIN{
