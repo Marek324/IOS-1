@@ -198,7 +198,7 @@ else
 fi
 
 if [ -z "$c_flag_regex" ];then
-    c_flag_regex='*'
+    c_flag_regex='.*'
 else 
     c_flag_regex="^$c_flag_regex$"
 fi
@@ -269,6 +269,7 @@ case "$command" in
                 date = convert_date_seconds($2);
                 if (date <= date_after) next
                 if (date >= date_before) next
+                if ($3 !~ currencies) next
 
                 print $0
             }
