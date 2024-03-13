@@ -90,7 +90,6 @@ if [ -z "$XTF_PROFIT" ]; then
     XTF_PROFIT=20
 fi
 
-declare -A currency_table
 files=() #array of files
 
 user=''
@@ -136,6 +135,9 @@ while [ -n "$1" ]; do
         list|list-currency|status|profit)
             if [ -z "$command" ]; then
                 command="$1"
+                if [ "$command" == "list-currency" ]; then
+                    command="list_currency"
+                fi
             else
                 two_commands_error 
             fi
@@ -158,12 +160,12 @@ if [ -z "$command" ]; then
 fi
 
 if [ -z "$user" ]; then
-    echo "Error: No user specified."
+    echo "Error: No user specified." >&2
     exit 1
 fi
 
 if [ ${#files[@]} -eq 0 ]; then
-    echo "Error: No log files"
+    echo "Error: No log files" >&2
     exit 1
 fi
 
@@ -203,53 +205,72 @@ else
     c_flag_regex="^$c_flag_regex$"
 fi
 
-error_code=0
 
-if ! awk -v line_regex="$line_regex" '
+for file in "${files[@]}"; do
+    if [[ "$file" == *.gz ]]; then
+        read="zcat"
+    else 
+        read="cat"
+    fi
+    
+    $read "$file" | awk -v line_regex="$line_regex" '
     ($0 !~ line_regex) {
-        print "Line "NR" in file "FILENAME" is not in valid format" > "/dev/stderr"
-        error_code=1
+        print "Invalid file" > "/dev/stderr"
+        exit 1
+    }' 
+
+    if [[ $? == 1 ]]; then 
+        exit 1
+    fi
+done
+
+list(){
+    for file in "${files[@]}"; do
+        if [[ "$file" == *.gz ]]; then
+        read="zcat"
+    else 
+        read="cat"
+    fi
+
+    $read "$file" | awk -F";" '
+        $1 == user { 
+            date = convert_date_seconds($2);
+            if (date <= date_after) next
+            if (date >= date_before) next
+            if ($3 !~ currencies) next
+
+            print 
+        }
+
+                
+        function convert_date_seconds(date_string) {
+            split(date_string, date_parts, /[- :]/)
+            return mktime(date_parts[1] " " date_parts[2] " " date_parts[3] " " date_parts[4] " " date_parts[5] " " date_parts[6])
+        }
+
+    ' user="$user"  date_after="$date_filter_after" date_before="$date_filter_before" currencies="$c_flag_regex"
+    done
+}
+
+list_currency(){
+    list | awk -F";" '{print $3}' | sort -u
+}
+
+status(){
+    list | awk -F";" '{
+        print "3 "$3
+        print "4 "$4
+        if (!(currs[$3])) {currs[$3] = 0}
+        else {currs[$3] += $4}
     }
+    
     END{
-        exit error_code
-    }
-' "${files[@]}"; then
-    exit 1
-fi
+        for (curr in currs){
+            printf "%s : %.4f\n", curr, currs[curr]
+        }
+    }' | sort
+
+}
 
 
-
-
-case "$command" in
-    list)
-        awk -F";" -v user="$user" -v date_after="$date_filter_after" -v date_before="$date_filter_before" -v currencies="$c_flag_regex" '
-            BEGIN{
-                # debug
-                #print date_before
-                #print date_after
-            }
-            
-            {
-                if (user != $1) next
-
-                date = convert_date_seconds($2);
-                if (date <= date_after) next
-                if (date >= date_before) next
-                if ($3 !~ currencies) next
-
-                print $0
-            }
-
-            function convert_date_seconds(date_string) {
-                split(date_string, date_parts, /[- :]/)
-                return mktime(date_parts[1] " " date_parts[2] " " date_parts[3] " " date_parts[4] " " date_parts[5] " " date_parts[6])
-            }
-        ' "${files[@]}" 
-        ;;
-    list-currency)
-        ;;
-    status)
-        ;;
-    profit)
-        ;;
-esac
+$command
