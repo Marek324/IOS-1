@@ -38,12 +38,6 @@ two_commands_error(){
     exit 1
 }
 
-date_format_error(){
-    # $1 - invalid date
-    echo "Error: Invalid date format: $1" >&2
-    exit 1
-}
-
 currency_format_error(){
     # $1 - invalid currency code
     echo "Error: Invalid currency format: $1" >&2
@@ -65,11 +59,14 @@ regex_check(){
 
 date_validation(){
     # $1 - date to be checked
-    local date_regex="^(\d{4})-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1]) (?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
+    # local date_regex="^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])$"
 
-    valid=$(regex_check "$1" "$date_regex")
-    if [ ! "$valid" ]; then
-        date_format_error "$1"
+    # valid=$(regex_check "$1" "$date_regex")
+    r=$(date -d "$1" +"%Y-%m-%d %H:%M:%S"  2>/dev/null)
+
+    if [ $? -ne 0 ]; then
+        echo "Error: Invalid date format: $1" >&2
+        exit 1
     fi
 
 }
@@ -85,7 +82,6 @@ currency_validation(){
 
 }
 
-
 if [ -z "$XTF_PROFIT" ]; then
     XTF_PROFIT=20
 fi
@@ -95,9 +91,9 @@ files=() #array of files
 user=''
 command=""
 a_flag=false
-date_filter_after=""
+date_filter_after=0
 b_flag=false
-date_filter_before=""
+date_filter_before=$(date -d "9999-12-31 23:59:59" +"%s")
 c_flag_regex=""
 
 while [ -n "$1" ]; do
@@ -171,32 +167,17 @@ fi
 
 
 line_regex="^[^;]+;[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]);[A-Z]{3};-?[0-9]+(\.[0-9]+)?$"
-#line_regex="^.*;(\d{4})-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1]) (?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9];[-+]?[0-9]*\.?[0-9]*$"
-
-#for file in "${files[@]}"; do
-#    if [[ "$file" == *.gz ]]; then
-#        read="zgrep"
-#    else
-#        read="grep"
-#    fi  
-#
-#    error=$($read -cvE "$line_regex" "$file")
-#    if [ "$error" -gt 0 ]; then
-#        echo "Invalid line in log" >&2
-#        exit 1
-#    fi
-#done 
 
 if [ $a_flag = true ]; then
     date_filter_after=$(date -d "$date_filter_after" +"%s")
-else 
-    date_filter_after=0
+# else 
+#     date_filter_after=0
 fi
 
 if [ $b_flag = true ]; then
     date_filter_before=$(date -d "$date_filter_before" +"%s")
-else 
-    date_filter_before=$(date -d "9999-12-31 23:59:59" +"%s")
+# else 
+#     date_filter_before=$(date -d "9999-12-31 23:59:59" +"%s")
 fi
 
 if [ -z "$c_flag_regex" ];then
@@ -242,7 +223,6 @@ list(){
             print 
         }
 
-                
         function convert_date_seconds(date_string) {
             split(date_string, date_parts, /[- :]/)
             return mktime(date_parts[1] " " date_parts[2] " " date_parts[3] " " date_parts[4] " " date_parts[5] " " date_parts[6])
@@ -258,19 +238,33 @@ list_currency(){
 
 status(){
     list | awk -F";" '{
-        print "3 "$3
-        print "4 "$4
-        if (!(currs[$3])) {currs[$3] = 0}
-        else {currs[$3] += $4}
+        if ($3 in codes) {
+            codes[$3] += $4
+        } else {
+            codes[$3] = $4
+        }
     }
     
     END{
-        for (curr in currs){
-            printf "%s : %.4f\n", curr, currs[curr]
+        for (c in codes){
+            printf "%s : %.4f\n", c, codes[c]
         }
     }' | sort
 
 }
 
+profit(){
+    status | awk -F" : " -v profit="$XTF_PROFIT" '
+    BEGIN{
+        profit /= 100
+        profit += 1
+    }
+    {
+        val = $2
+        if (val > 0) val *= profit
+        code = $1
+        printf "%s : %.4f\n", code, val
+    }'
+}
 
 $command
