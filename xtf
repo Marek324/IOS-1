@@ -44,39 +44,20 @@ currency_format_error(){
     exit 1
 }
 
-regex_check(){
-    # $1 - string to be checked
-    # $2 - regex
-    local checked="$1"
-    local regex="$2"
-
-    if [[ $checked =~ $regex ]]; then
-        echo true
-    else
-        echo false
-    fi
-}
-
 date_validation(){
     # $1 - date to be checked
-    # local date_regex="^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])$"
-
-    # valid=$(regex_check "$1" "$date_regex")
     r=$(date -d "$1" +"%Y-%m-%d %H:%M:%S"  2>/dev/null)
 
     if [ $? -ne 0 ]; then
         echo "Error: Invalid date format: $1" >&2
         exit 1
     fi
-
 }
 
 currency_validation(){
     # $1 - currency code to be checked
     local currency_regex="^[A-Z]{3}$"
-
-    valid="regex_check $1 $currency_regex"
-    if [ ! "$valid" ]; then
+    if [[ ! "$1" =~ $currency_regex ]]; then
         currency_format_error "$1"
     fi
 
@@ -88,7 +69,7 @@ fi
 
 files=() #array of files
 
-user=''
+user=""
 command=""
 a_flag=false
 date_filter_after=0
@@ -170,14 +151,10 @@ line_regex="^[^;]+;[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]) ([01][0-9]|
 
 if [ $a_flag = true ]; then
     date_filter_after=$(date -d "$date_filter_after" +"%s")
-# else 
-#     date_filter_after=0
 fi
 
 if [ $b_flag = true ]; then
     date_filter_before=$(date -d "$date_filter_before" +"%s")
-# else 
-#     date_filter_before=$(date -d "9999-12-31 23:59:59" +"%s")
 fi
 
 if [ -z "$c_flag_regex" ];then
