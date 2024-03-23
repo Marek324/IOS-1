@@ -1,5 +1,5 @@
-!.gitignore
-!xtf
-!README.md
-!assignment.html
-*
+*.log
+*.gz
+xtf
+*.txt
+*.sh
