@@ -2,6 +2,13 @@
 
 Posixly correct bash script that takes in log(s) and user's name and prints filtered logs for the user. 
 
+## Logs
+
+Logs are in CSV format
+```
+NAME;DATETIME;CURRENCY;AMOUNT
+```
+
 ## Usage
 
 `./xtf [-h|--help] [FILTER] [COMMAND] USER LOG [LOG2 [...]]
