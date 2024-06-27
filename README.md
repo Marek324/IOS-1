@@ -10,9 +10,9 @@ NAME;DATETIME;CURRENCY;AMOUNT
 ```
 
 ## Usage
-
-`./xtf [-h|--help] [FILTER] [COMMAND] USER LOG [LOG2 [...]]
-
+```
+./xtf [-h|--help] [FILTER] [COMMAND] USER LOG [LOG2 [...]]
+```
 COMMAND may be one of:
 - list - a listing of records for a given user.
 - list-currency - a listing of a sorted list of occurring currencies.
