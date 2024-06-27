@@ -25,3 +25,5 @@ FILTER can be a combination of the following:
 - -c CURRENCY - only records corresponding to the given currency are considered.
 
 -h and --help print a help message with a short description of each command and switch.
+
+This script was a project in my Operating systems at FIT BUT course, final evaluation: 16.5/15
